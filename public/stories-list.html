@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stories List</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main>
+        <div class="container">
+            <h1>All Stories</h1>
+            <div class="story-box">
+                <div id="stories-list" class="stories-list"></div>
+            </div>
+            <button onclick="window.location.href='story-generator.html'" class="back-btn">Back to Generator</button>
+        </div>
+    </main>
+
+    <script>
+        // Replace the stories array with a fetch call
+        async function loadStories() {
+            try {
+                const response = await fetch('/api/stories');
+                const data = await response.json();
+                const storiesList = document.getElementById('stories-list');
+                
+                data.stories.forEach(story => {
+                    const storyElement = document.createElement('div');
+                    storyElement.className = 'story-item';
+                    storyElement.innerHTML = `
+                        <h3 class="story-link" onclick="showStory('${story.title}')">${story.title}</h3>
+                        <div class="story-actions">
+                            <button onclick="rateStory('${story.title}')">⭐</button>
+                            <button onclick="addToFavorites('${story.title}')">❤️</button>
+                        </div>
+                        <div class="story-content hidden" id="${story.title.replace(/\s+/g, '-')}">
+                            <p>${story.text}</p>
+                        </div>
+                    `;
+                    storiesList.appendChild(storyElement);
+                });
+            } catch (error) {
+                console.error('Error loading stories:', error);
+                document.getElementById('stories-list').innerHTML = 'Error loading stories. Please try again.';
+            }
+        }
+
+        function showStory(title) {
+            const storyContent = document.getElementById(title.replace(/\s+/g, '-'));
+            const isHidden = storyContent.classList.contains('hidden');
+            
+            // Hide all stories first
+            document.querySelectorAll('.story-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // Show selected story if it was hidden
+            if (isHidden) {
+                storyContent.classList.remove('hidden');
+            }
+        }
+
+        // Load stories when page loads
+        loadStories();
+
+        function rateStory(title) {
+            const ratings = JSON.parse(localStorage.getItem('storyRatings') || '{}');
+            const currentRating = ratings[title] || 0;
+            const newRating = currentRating < 5 ? currentRating + 1 : 0;
+            ratings[title] = newRating;
+            localStorage.setItem('storyRatings', JSON.stringify(ratings));
+            updateRatingDisplay(title, newRating);
+        }
+
+        function addToFavorites(title) {
+            const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+            const index = favorites.indexOf(title);
+            if (index === -1) {
+                favorites.push(title);
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+                updateFavoriteDisplay(title, true);
+            } else {
+                favorites.splice(index, 1);
+                localStorage.setItem('favorites', JSON.stringify(favorites));
+                updateFavoriteDisplay(title, false);
+            }
+        }
+
+        function updateRatingDisplay(title, rating) {
+            const button = document.querySelector(`button[onclick="rateStory('${title}')"]`);
+            button.textContent = '⭐'.repeat(rating) || '⭐';
+        }
+
+        function updateFavoriteDisplay(title, isFavorite) {
+            const button = document.querySelector(`button[onclick="addToFavorites('${title}')"]`);
+            button.textContent = isFavorite ? '❤️' : '🤍';
+        }
+    </script>
+</body>
+</html> 

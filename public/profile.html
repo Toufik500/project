@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main>
+        <div class="container">
+            <div class="auth-nav">
+                <a href="story-generator.html" class="auth-button">Generator</a>
+                <a href="categories.html" class="auth-button">Categories</a>
+                <a href="/" class="auth-button">Logout</a>
+            </div>
+            <h1>My Profile</h1>
+            <div class="profile-container">
+                <div class="profile-section">
+                    <h2>Reading Preferences</h2>
+                    <div class="preferences">
+                        <div class="preference-item">
+                            <label>Default Theme</label>
+                            <select onchange="savePreference('theme', this.value)">
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                                <option value="sepia">Sepia</option>
+                            </select>
+                        </div>
+                        <div class="preference-item">
+                            <label>Font Size</label>
+                            <select onchange="savePreference('fontSize', this.value)">
+                                <option value="small">Small</option>
+                                <option value="medium">Medium</option>
+                                <option value="large">Large</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="profile-section">
+                    <h2>My Favorites</h2>
+                    <div id="favorites-list" class="favorites-list">
+                        <!-- Favorites will be loaded here -->
+                    </div>
+                </div>
+                <div class="profile-section">
+                    <h2>Reading History</h2>
+                    <div id="history-list" class="history-list">
+                        <!-- History will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function loadFavorites() {
+            const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+            const favoritesList = document.getElementById('favorites-list');
+            favoritesList.innerHTML = favorites.length ? 
+                favorites.map(title => `<div class="favorite-item">${title}</div>`).join('') :
+                '<p>No favorites yet</p>';
+        }
+
+        function savePreference(key, value) {
+            localStorage.setItem(`pref_${key}`, value);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFavorites();
+        });
+    </script>
+</body>
+</html> 

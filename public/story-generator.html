@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main>
+        <div class="container">
+            <div class="auth-nav">
+                <a href="profile.html" class="auth-button">My Profile</a>
+                <a href="categories.html" class="auth-button">Categories</a>
+                <a href="/" class="auth-button">Logout</a>
+            </div>
+            <h1>Story Generator</h1>
+            <div class="story-box">
+                <h2 id="story-title" class="story-title"></h2>
+                <div class="controls">
+                    <div class="theme-controls">
+                        <button onclick="changeTheme('light')">Light</button>
+                        <button onclick="changeTheme('night')">Dark</button>
+                        <button onclick="changeTheme('sepia')">Sepia</button>
+                    </div>
+                    <div class="font-controls">
+                        <select id="font-selector" onchange="changeFont(this.value)">
+                            <option value="monospace">Monospace</option>
+                            <option value="serif">Serif</option>
+                            <option value="sans-serif">Sans-serif</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Arial">Arial</option>
+                        </select>
+                        <button onclick="adjustFontSize('decrease')">A-</button>
+                        <button onclick="adjustFontSize('increase')">A+</button>
+                    </div>
+                </div>
+                <p id="story-text" class="placeholder">Your story will appear here...</p>
+                <div class="button-group">
+                    <button onclick="handleGenerateStory()" id="generate-btn">Generate New Story</button>
+                    <button onclick="handleDownloadPDF()" id="download-btn" disabled>Download PDF</button>
+                    <button onclick="window.location.href='stories-list.html'" class="list-btn">View All Stories</button>
+                    <button onclick="toggleSpeech()" id="speak-btn" disabled>
+                        <span id="speak-icon">🔊</span> Read Aloud
+                    </button>
+                </div>
+                <div class="word-lookup">
+                    <input type="text" id="word-input" placeholder="Enter a word to define">
+                    <button onclick="handleGetDefinition()">Get Definition</button>
+                    <p id="definition-text" class="definition"></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentStory = '';
+        let isReading = false;
+        let speechUtterance = null;
+
+        async function handleGenerateStory() {
+            const storyTitle = document.getElementById('story-title');
+            const storyText = document.getElementById('story-text');
+            const button = document.getElementById('generate-btn');
+            const downloadBtn = document.getElementById('download-btn');
+            
+            button.disabled = true;
+            button.textContent = 'Generating Story...';
+            storyText.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch('/api/generate-story', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server response:', response.status, errorText);
+                    throw new Error(`Server error: ${response.status} ${errorText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Received data:', data);
+                
+                if (!data || !data.title || !data.story) {
+                    throw new Error('Invalid response format');
+                }
+                
+                currentStory = data.story;
+                storyTitle.textContent = data.title;
+                storyText.textContent = data.story;
+                storyText.classList.remove('placeholder');
+                downloadBtn.disabled = false;
+                document.getElementById('speak-btn').disabled = false;
+                
+                if (isReading) {
+                    stopSpeech();
+                }
+            } catch (error) {
+                console.error('Detailed error:', error);
+                storyText.textContent = 'Error: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Generate New Story';
+            }
+        }
+
+        async function handleGetDefinition() {
+            const wordInput = document.getElementById('word-input');
+            const definitionText = document.getElementById('definition-text');
+            const word = wordInput.value.trim();
+
+            if (!word) {
+                definitionText.textContent = 'Please enter a word';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/get-definition', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ word })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                definitionText.textContent = `${word}: ${data.definition}`;
+            } catch (error) {
+                definitionText.textContent = 'Could not find definition';
+                console.error('Definition error:', error);
+            }
+        }
+
+        async function handleDownloadPDF() {
+            if (!currentStory) {
+                alert('Please generate a story first');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/download-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ story: currentStory })
+                });
+
+                if (!response.ok) throw new Error('Failed to generate PDF');
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'story.pdf';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('PDF download error:', error);
+                alert('Failed to download PDF');
+            }
+        }
+
+        function changeTheme(theme) {
+            const storyBox = document.querySelector('.story-box');
+            switch(theme) {
+                case 'night':
+                    storyBox.style.backgroundColor = '#1f2937';
+                    storyBox.style.color = '#fff';
+                    break;
+                case 'sepia':
+                    storyBox.style.backgroundColor = '#f4f1ea';
+                    storyBox.style.color = '#5c4b37';
+                    break;
+                default:
+                    storyBox.style.backgroundColor = '#fff';
+                    storyBox.style.color = '#000';
+            }
+        }
+
+        function changeFont(fontFamily) {
+            const storyText = document.getElementById('story-text');
+            storyText.style.fontFamily = fontFamily;
+        }
+
+        function adjustFontSize(direction) {
+            const storyText = document.getElementById('story-text');
+            const currentSize = parseInt(window.getComputedStyle(storyText).fontSize);
+            storyText.style.fontSize = (direction === 'increase' ? currentSize + 2 : currentSize - 2) + 'px';
+        }
+
+        function toggleSpeech() {
+            if (!window.speechSynthesis) {
+                alert('Sorry, your browser does not support text-to-speech!');
+                return;
+            }
+
+            if (isReading) {
+                stopSpeech();
+            } else {
+                startSpeech();
+            }
+        }
+
+        function startSpeech() {
+            const speakBtn = document.getElementById('speak-btn');
+            const speakIcon = document.getElementById('speak-icon');
+            
+            speechUtterance = new SpeechSynthesisUtterance(currentStory);
+            
+            speechUtterance.onend = function() {
+                isReading = false;
+                speakIcon.textContent = '🔊';
+                speakBtn.classList.remove('speaking');
+            };
+            
+            speechUtterance.onerror = function(event) {
+                console.error('Speech error:', event);
+                isReading = false;
+                speakIcon.textContent = '🔊';
+                speakBtn.classList.remove('speaking');
+            };
+
+            window.speechSynthesis.speak(speechUtterance);
+            isReading = true;
+            speakIcon.textContent = '⏹️';
+            speakBtn.classList.add('speaking');
+        }
+
+        function stopSpeech() {
+            window.speechSynthesis.cancel();
+            isReading = false;
+            document.getElementById('speak-icon').textContent = '🔊';
+            document.getElementById('speak-btn').classList.remove('speaking');
+        }
+
+        // Initialize reading progress tracker
+        document.addEventListener('DOMContentLoaded', () => {
+            const storyBox = document.querySelector('.story-box');
+            const progress = document.createElement('div');
+            progress.className = 'progress-bar';
+            storyBox.appendChild(progress);
+
+            window.addEventListener('scroll', () => {
+                const percent = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+                progress.style.width = `${percent}%`;
+            });
+        });
+    </script>
+</body>
+</html> 
